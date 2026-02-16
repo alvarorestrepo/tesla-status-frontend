@@ -6,8 +6,9 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { AlertCircle, Home, Zap } from "lucide-react"
+import { Suspense } from 'react';
 
-export default function AuthError() {
+function AuthErrorContent() {
   const searchParams = useSearchParams();
   const error = searchParams.get('error');
   const detail = searchParams.get('detail');
@@ -52,5 +53,13 @@ export default function AuthError() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+export default function AuthError() {
+  return (
+    <Suspense fallback={<div>Cargando...</div>}>
+      <AuthErrorContent />
+    </Suspense>
   );
 }

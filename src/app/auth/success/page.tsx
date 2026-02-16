@@ -4,8 +4,9 @@ import { useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent } from "@/components/ui/card"
 import { Loader2, CheckCircle2, Zap } from "lucide-react"
+import { Suspense } from 'react';
 
-export default function AuthSuccess() {
+function AuthSuccessContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get('token');
@@ -34,5 +35,13 @@ export default function AuthSuccess() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+export default function AuthSuccess() {
+  return (
+    <Suspense fallback={<div>Cargando...</div>}>
+      <AuthSuccessContent />
+    </Suspense>
   );
 }
