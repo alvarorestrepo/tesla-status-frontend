@@ -974,7 +974,7 @@ export default function Dashboard() {
                               Placa y Registro
                             </h4>
                             <div className="space-y-2 text-sm">
-                              <RawDataRow label="license_plate_number" value={order.license_plate_number_number} />
+                              <RawDataRow label="license_plate_number" value={order.license_plate_number} />
                               <RawDataRow label="current_registration_state_province" value={order.current_registration_state_province} />
                               <RawDataRow label="registration_expiration_date" value={order.registration_expiration_date} />
                               <RawDataRow label="registration_status" value={order.registration_status} />
