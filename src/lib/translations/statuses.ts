@@ -61,3 +61,24 @@ export function decodeStatus(code: string | null): StatusInfo {
   // Si no se encuentra, devolver el código original
   return { name: code, progress: 0, color: "outline" };
 }
+
+/**
+ * Devuelve información de estado basada en el porcentaje de progreso.
+ * Útil cuando el progreso se calcula dinámicamente basado en múltiples factores (VIN, ubicación, cita, etc.)
+ */
+export function getStatusInfoByProgress(progress: number): StatusInfo {
+  // Buscar el estado que corresponde al progreso más cercano
+  const statuses = Object.values(STATUS_CODES);
+  
+  // Ordenar por progreso descendente para encontrar el más alto que no exceda el progreso actual
+  const sortedStatuses = statuses
+    .filter(status => status.progress <= progress)
+    .sort((a, b) => b.progress - a.progress);
+  
+  if (sortedStatuses.length > 0) {
+    return sortedStatuses[0];
+  }
+  
+  // Si no hay coincidencia, devolver estado desconocido
+  return { name: "Desconocido", progress: 0, color: "outline" };
+}

@@ -16,9 +16,57 @@ import {
 } from "lucide-react"
 import { decodeModel } from "@/lib/translations/models"
 import { decodeCountry } from "@/lib/translations/countries"
-import { decodeStatus } from "@/lib/translations/statuses"
+import { decodeStatus, getStatusInfoByProgress } from "@/lib/translations/statuses"
 import { decodeMktOptions, groupMktOptionsByCategory, MktOptionInfo } from "@/lib/translations/mktOptions"
 import { decodeTaskStatus, decodeOrderSubstatus } from "@/lib/translations/taskStatuses"
+
+/**
+ * Calcula el progreso del pedido basado en múltiples factores, no solo el order_status.
+ * Prioridad (de mayor a menor):
+ * 1. Estado DELIVERED = 100%
+ * 2. Cita de entrega agendada = 90%
+ * 3. Vehículo en tránsito (tiene ubicación o ETA) = 80%
+ * 4. VIN asignado = 65%
+ * 5. Estado IN_PRODUCTION = 50%
+ * 6. Estado CONFIRMED = 25%
+ * 7. Fallback al order_status original
+ */
+function calculateOrderProgress(order: Order): number {
+  // 1. Si ya está entregado, 100%
+  if (order.order_status === 'DELIVERED' || order.order_status === 'DL' || order.order_status === 'delivered') {
+    return 100;
+  }
+  
+  // 2. Si tiene cita de entrega agendada, 90%
+  if (order.delivery_appointment && order.delivery_appointment !== 'No agendada') {
+    return 90;
+  }
+  
+  // 3. Si el vehículo está en tránsito (tiene ubicación o ETA al centro), 80%
+  // Nota: vehicle_location puede indicar que está en tránsito
+  // eta_to_delivery_center indica que viene camino al centro de entrega
+  if (order.vehicle_location || order.eta_to_delivery_center) {
+    return 80;
+  }
+  
+  // 4. Si tiene VIN asignado, 65%
+  if (order.vin && order.vin !== 'Por asignar' && order.vin !== '') {
+    return 65;
+  }
+  
+  // 5. Estados específicos del backend
+  if (order.order_status === 'IN_PRODUCTION' || order.order_status === 'IN' || order.order_status === 'production') {
+    return 50;
+  }
+  
+  if (order.order_status === 'CONFIRMED' || order.order_status === 'CF' || order.order_status === 'confirmed') {
+    return 25;
+  }
+  
+  // 6. Fallback: usar el mapeo original del order_status
+  const statusInfo = decodeStatus(order.order_status);
+  return statusInfo.progress;
+}
 
 interface Order {
   reference_number: string;
@@ -69,6 +117,12 @@ interface Order {
   vehicle_odometer: number | null;
   vehicle_odometer_type: string | null;
   license_plate: string | null;
+  // Campos adicionales del JSON
+  vehicle_model_year: string | null;
+  order_amount: number | null;
+  vehicle_title_status: string | null;
+  series: string | null;
+  sale_type: string | null;
 }
 
 const getCategoryIcon = (category: string) => {
@@ -123,6 +177,27 @@ const translatePaymentType = (type: string | null) => {
     'CASH': 'Efectivo',
     'LOAN': 'Financiamiento',
     'LEASE': 'Leasing'
+  };
+  return translations[type] || type;
+};
+
+// Helper para traducir estado del título del vehículo
+const translateVehicleTitleStatus = (status: string | null) => {
+  if (!status) return <span className="text-muted-foreground italic">No especificado</span>;
+  const translations: Record<string, string> = {
+    'NEW': 'Nuevo',
+    'USED': 'Usado',
+    'CERTIFIED_PRE_OWNED': 'Certificado Pre-Owned'
+  };
+  return translations[status] || status;
+};
+
+// Helper para traducir tipo de venta
+const translateSaleType = (type: string | null) => {
+  if (!type) return <span className="text-muted-foreground italic">No especificado</span>;
+  const translations: Record<string, string> = {
+    'ORDER': 'Pedido',
+    'INVENTORY': 'Inventario'
   };
   return translations[type] || type;
 };
@@ -216,7 +291,9 @@ export default function Dashboard() {
         ) : (
           <div className="grid gap-6">
             {orders.map((order) => {
-              const statusInfo = decodeStatus(order.order_status);
+              // Calcular progreso inteligente basado en múltiples factores
+              const calculatedProgress = calculateOrderProgress(order);
+              const statusInfo = getStatusInfoByProgress(calculatedProgress);
               const countryInfo = decodeCountry(order.country_code);
               const mktOptions = decodeMktOptions(order.mkt_options);
               const groupedOptions = groupMktOptionsByCategory(mktOptions);
@@ -277,7 +354,7 @@ export default function Dashboard() {
                       <TabsContent value="status" className="mt-4">
                         <div className="space-y-6">
                           {/* Timeline de progreso */}
-                          <OrderTimeline currentProgress={statusInfo.progress} />
+                          <OrderTimeline currentProgress={calculatedProgress} />
                           
                           {/* Info adicional */}
                           <div className="grid grid-cols-2 gap-4 text-sm pt-4 border-t">
@@ -341,6 +418,22 @@ export default function Dashboard() {
                                   }
                                 </span>
                               </div>
+                              <div className="flex justify-between py-2 border-b">
+                                <span className="text-muted-foreground">Año del modelo</span>
+                                <span className="font-medium">{formatValue(order.vehicle_model_year)}</span>
+                              </div>
+                              <div className="flex justify-between py-2 border-b">
+                                <span className="text-muted-foreground">Estado del vehículo</span>
+                                <span className="font-medium">{translateVehicleTitleStatus(order.vehicle_title_status)}</span>
+                              </div>
+                              <div className="flex justify-between py-2 border-b">
+                                <span className="text-muted-foreground">Serie</span>
+                                <span className="font-medium">{formatValue(order.series)}</span>
+                              </div>
+                              <div className="flex justify-between py-2 border-b">
+                                <span className="text-muted-foreground">Tipo de venta</span>
+                                <span className="font-medium">{translateSaleType(order.sale_type)}</span>
+                              </div>
                             </div>
                           </div>
 
@@ -378,6 +471,12 @@ export default function Dashboard() {
                                 <Badge variant="secondary">
                                   {translatePaymentType(order.payment_type)}
                                 </Badge>
+                              </div>
+                              <div className="flex justify-between py-2 border-b">
+                                <span className="text-muted-foreground">Monto total del pedido</span>
+                                <span className="font-medium">
+                                  {formatCurrency(order.order_amount, order.currency_code || 'COP')}
+                                </span>
                               </div>
                               <div className="flex justify-between py-2 border-b">
                                 <span className="text-muted-foreground">Reserva pagada</span>
@@ -484,6 +583,15 @@ export default function Dashboard() {
                                   </p>
                                 </div>
                               )}
+                              {order.registration_address && (
+                                <div className="py-2 border-b">
+                                  <span className="text-muted-foreground">Dirección de registro</span>
+                                  <p className="font-medium mt-1">
+                                    {order.registration_address.address1}{order.registration_address.address2 && `, ${order.registration_address.address2}`}<br />
+                                    {order.registration_address.city}, {order.registration_address.state} {order.registration_address.country}
+                                  </p>
+                                </div>
+                              )}
                             </div>
                           </div>
 
@@ -512,8 +620,12 @@ export default function Dashboard() {
                                 </span>
                               </div>
                               <div className="flex justify-between py-2 border-b">
-                                <span className="text-muted-foreground">Kilometraje</span>
-                                <span className="font-medium">100 KM</span>
+                                <span className="text-muted-foreground">Año del modelo</span>
+                                <span className="font-medium">{formatValue(order.vehicle_model_year)}</span>
+                              </div>
+                              <div className="flex justify-between py-2 border-b">
+                                <span className="text-muted-foreground">Estado del título</span>
+                                <span className="font-medium">{translateVehicleTitleStatus(order.vehicle_title_status)}</span>
                               </div>
                             </div>
                           </div>
