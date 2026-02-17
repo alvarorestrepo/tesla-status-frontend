@@ -223,12 +223,6 @@ interface Order {
   // Campos adicionales de conversión
   conversion_channel: string | null;
   utm_source: string | null;
-  // Campos adicionales del JSON
-  vehicle_model_year: string | null;
-  order_amount: number | null;
-  vehicle_title_status: string | null;
-  series: string | null;
-  sale_type: string | null;
 }
 
 const getCategoryIcon = (category: string) => {
