@@ -25,7 +25,6 @@ export default function TeslaPopupAuth() {
       .then(data => {
         if (data.auth_url) {
           setAuthUrl(data.auth_url);
-          window.open(data.auth_url, 'TeslaAuth', 'width=500,height=600');
         }
       })
       .catch(err => console.error('Error:', err));
@@ -93,8 +92,8 @@ export default function TeslaPopupAuth() {
                 1
               </div>
               <div className="text-sm">
-                <p className="font-medium">Se abrió una ventana emergente</p>
-                <p className="text-muted-foreground">Si no la ves, haz clic en el botón de abajo</p>
+                <p className="font-medium">Abre la ventana de autenticación</p>
+                <p className="text-muted-foreground">Haz clic en el botón de abajo para iniciar el proceso</p>
               </div>
             </div>
 
