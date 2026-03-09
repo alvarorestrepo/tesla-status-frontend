@@ -6,6 +6,7 @@ import { Order } from '@/lib/tesla/types';
 
 interface OrderContextType {
   order: Order | null;
+  orders: Order[];
   userData: {
     name: string;
     email: string;
@@ -13,16 +14,36 @@ interface OrderContextType {
   loading: boolean;
   error: string | null;
   refetch: () => Promise<void>;
+  selectedIndex: number;
+  selectOrder: (index: number) => void;
 }
 
 const OrderContext = createContext<OrderContextType | undefined>(undefined);
 
+function getStorageKey(email: string): string {
+  return `tesla_selected_vehicle_index_${email}`;
+}
+
 export function OrderProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
-  const [order, setOrder] = useState<Order | null>(null);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [selectedIndex, setSelectedIndex] = useState(0);
   const [userData, setUserData] = useState({ name: '', email: '' });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Derived order (backward compatibility)
+  const order = orders[selectedIndex] || null;
+
+  const selectOrder = (index: number) => {
+    if (index >= 0 && index < orders.length) {
+      setSelectedIndex(index);
+      // Persist to localStorage
+      if (userData.email) {
+        localStorage.setItem(getStorageKey(userData.email), index.toString());
+      }
+    }
+  };
 
   const fetchOrderData = async () => {
     const token = localStorage.getItem('tesla_access_token');
@@ -53,19 +74,30 @@ export function OrderProvider({ children }: { children: ReactNode }) {
       const data = await res.json();
       
       if (data && data.length > 0) {
-        const orderData = data[0];
-        setOrder(orderData);
+        setOrders(data);
         
-        // Extraer datos del usuario de la orden
-        const firstName = orderData.first_name?.trim() || '';
-        const lastName = orderData.last_name?.trim() || '';
+        // Extract user data from first order
+        const firstOrder = data[0];
+        const firstName = firstOrder.first_name?.trim() || '';
+        const lastName = firstOrder.last_name?.trim() || '';
         const fullName = firstName && lastName ? `${firstName} ${lastName}` : firstName || lastName;
-        const email = orderData.email_address || localStorage.getItem('tesla_user_email') || '';
+        const email = firstOrder.email_address || localStorage.getItem('tesla_user_email') || '';
         
         setUserData({
           name: fullName || email.split('@')[0] || 'Usuario',
           email: email
         });
+
+        // Restore selected index from localStorage if available
+        if (email) {
+          const savedIndex = localStorage.getItem(getStorageKey(email));
+          if (savedIndex !== null) {
+            const parsedIndex = parseInt(savedIndex, 10);
+            if (!isNaN(parsedIndex) && parsedIndex >= 0 && parsedIndex < data.length) {
+              setSelectedIndex(parsedIndex);
+            }
+          }
+        }
       }
     } catch (err) {
       console.error('Error:', err);
@@ -83,10 +115,13 @@ export function OrderProvider({ children }: { children: ReactNode }) {
     <OrderContext.Provider 
       value={{ 
         order, 
+        orders,
         userData, 
         loading, 
         error,
-        refetch: fetchOrderData 
+        refetch: fetchOrderData,
+        selectedIndex,
+        selectOrder
       }}
     >
       {children}

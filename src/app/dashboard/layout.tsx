@@ -6,7 +6,7 @@ import { Sidebar } from '@/components/layout/Sidebar';
 import { MobileHeader } from '@/components/layout/MobileHeader';
 
 function DashboardContent({ children }: { children: React.ReactNode }) {
-  const { userData, order, loading } = useOrder();
+  const { userData, order, orders, selectedIndex, selectOrder, loading } = useOrder();
 
   if (loading) {
     return (
@@ -21,8 +21,19 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen bg-background">
-      <Sidebar userName={userData.name} userEmail={userData.email} />
-      <MobileHeader orderReference={order?.reference_number} />
+      <Sidebar 
+        userName={userData.name} 
+        userEmail={userData.email}
+        orders={orders}
+        selectedIndex={selectedIndex}
+        onSelectOrder={selectOrder}
+      />
+      <MobileHeader 
+        orderReference={order?.reference_number}
+        orders={orders}
+        selectedIndex={selectedIndex}
+        onSelectOrder={selectOrder}
+      />
       
       <main className="md:ml-[250px] min-h-screen pt-14 md:pt-0">
         <div className="p-4 md:p-6 lg:p-8 max-w-7xl">

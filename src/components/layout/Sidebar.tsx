@@ -6,6 +6,7 @@ import { SidebarHeader } from './SidebarHeader';
 import { SidebarFooter } from './SidebarFooter';
 import { SidebarItem } from './SidebarItem';
 import { cn } from '@/lib/utils';
+import { Order } from '@/lib/tesla/types';
 import { 
   Activity, FileText, Calendar, CreditCard, CheckCircle,
   Car, Truck, Settings, User, IdCard, BarChart3, 
@@ -32,9 +33,12 @@ const SECTIONS = [
 interface SidebarProps {
   userName?: string;
   userEmail?: string;
+  orders?: Order[];
+  selectedIndex?: number;
+  onSelectOrder?: (index: number) => void;
 }
 
-export function Sidebar({ userName, userEmail }: SidebarProps) {
+export function Sidebar({ userName, userEmail, orders = [], selectedIndex = 0, onSelectOrder }: SidebarProps) {
   const { isOpen, closeSidebar, activeSection, setActiveSection } = useSidebar();
   const [displayUserData, setDisplayUserData] = useState({ name: userName || '', email: userEmail || '' });
 
@@ -71,7 +75,13 @@ export function Sidebar({ userName, userEmail }: SidebarProps) {
         )}
         aria-label="Navegación principal"
       >
-        <SidebarHeader userName={displayUserData.name} userEmail={displayUserData.email} />
+        <SidebarHeader 
+          userName={displayUserData.name} 
+          userEmail={displayUserData.email}
+          orders={orders}
+          selectedIndex={selectedIndex}
+          onSelectOrder={onSelectOrder}
+        />
 
         {/* Navegación */}
         <nav className="flex-1 overflow-y-auto py-4 px-3">
