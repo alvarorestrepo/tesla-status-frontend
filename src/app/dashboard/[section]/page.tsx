@@ -23,8 +23,10 @@ import { Card, CardContent } from '@/components/ui/card';
 import { 
   Activity, FileText, Calendar, CreditCard, CheckCircle,
   Car, Truck, Settings, User, IdCard, BarChart3, 
-  BadgeDollarSign, FileStack, ArrowLeftRight
+  BadgeDollarSign, FileStack, ArrowLeftRight, RefreshCw
 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 const SECTIONS: Record<string, { label: string; icon: React.ElementType }> = {
   estado: { label: 'Estado del Pedido', icon: Activity },
@@ -100,7 +102,7 @@ export default function SectionPage() {
   const params = useParams();
   const router = useRouter();
   const { setActiveSection } = useSidebar();
-  const { order, loading, error } = useOrder();
+  const { order, loading, error, refetch } = useOrder();
   const section = params.section as string;
 
   // Validar sección
@@ -182,16 +184,28 @@ export default function SectionPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 bg-[#E31937]/10 rounded-lg flex items-center justify-center">
-          <Icon className="w-5 h-5 text-[#E31937]" />
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-[#E31937]/10 rounded-lg flex items-center justify-center">
+            <Icon className="w-5 h-5 text-[#E31937]" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold">{sectionInfo?.label}</h1>
+            <p className="text-muted-foreground">
+              Pedido #{order.reference_number} • {order.model_code.toUpperCase()}
+            </p>
+          </div>
         </div>
-        <div>
-          <h1 className="text-2xl font-bold">{sectionInfo?.label}</h1>
-          <p className="text-muted-foreground">
-            Pedido #{order.reference_number} • {order.model_code.toUpperCase()}
-          </p>
-        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={refetch}
+          disabled={loading}
+          className="gap-2"
+        >
+          <RefreshCw className={cn("w-4 h-4", loading && "animate-spin")} />
+          {loading ? 'Actualizando...' : 'Actualizar'}
+        </Button>
       </div>
 
       {renderSection()}
