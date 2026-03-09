@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_URL = ''; // Usar endpoints locales de Next.js
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -353,18 +353,31 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem('jwt_token');
+    const token = localStorage.getItem('tesla_access_token');
     if (!token) {
       router.push('/');
       return;
     }
     
-    fetch(`${API_URL}/orders/`, {
+    // Usar endpoint local de Next.js
+    fetch('/api/orders', {
       headers: { 'Authorization': `Bearer ${token}` }
     })
-    .then(res => res.json())
+    .then(res => {
+      if (!res.ok) {
+        if (res.status === 401) {
+          localStorage.removeItem('tesla_access_token');
+          router.push('/');
+          return;
+        }
+        throw new Error(`Error: ${res.status}`);
+      }
+      return res.json();
+    })
     .then(data => {
-      setOrders(data);
+      if (data) {
+        setOrders(data);
+      }
       setLoading(false);
     })
     .catch(err => {
@@ -374,7 +387,8 @@ export default function Dashboard() {
   }, [router]);
 
   const handleLogout = () => {
-    localStorage.removeItem('jwt_token');
+    localStorage.removeItem('tesla_access_token');
+    localStorage.removeItem('tesla_refresh_token');
     router.push('/');
   };
 

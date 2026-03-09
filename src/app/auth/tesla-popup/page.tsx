@@ -9,8 +9,6 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { ExternalLink, Loader2, AlertCircle, ArrowRight, CheckCircle2, Zap } from "lucide-react"
 import Link from "next/link"
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-
 export default function TeslaPopupAuth() {
   const router = useRouter();
   const [urlInput, setUrlInput] = useState('');
@@ -20,7 +18,8 @@ export default function TeslaPopupAuth() {
   const [step, setStep] = useState(1);
 
   useEffect(() => {
-    fetch(`${API_URL}/auth/tesla-url`)
+    // Usar endpoint local de Next.js
+    fetch('/api/auth/tesla-url', { method: 'POST' })
       .then(res => res.json())
       .then(data => {
         if (data.auth_url) {
@@ -35,29 +34,50 @@ export default function TeslaPopupAuth() {
     return match ? match[1] : null;
   };
 
+  const extractState = (url: string) => {
+    const match = url.match(/[?&]state=([^&]+)/);
+    return match ? match[1] : null;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError('');
 
     const code = extractCode(urlInput);
+    const state = extractState(urlInput);
+    
     if (!code) {
       setError('No se encontró el código en la URL. Asegúrate de copiar la URL completa.');
       setIsLoading(false);
       return;
     }
 
+    if (!state) {
+      setError('No se encontró el state en la URL. Asegúrate de copiar la URL completa.');
+      setIsLoading(false);
+      return;
+    }
+
     try {
-      const response = await fetch(`${API_URL}/auth/exchange-code`, {
+      // Usar endpoint local de Next.js
+      const response = await fetch('/api/auth/exchange-code', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code }),
+        body: JSON.stringify({ code, state }),
       });
 
-      if (!response.ok) throw new Error('Error al intercambiar código');
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Error al intercambiar código');
+      }
 
       const data = await response.json();
-      localStorage.setItem('jwt_token', data.access_token);
+      // Guardar token de Tesla directamente
+      localStorage.setItem('tesla_access_token', data.access_token);
+      if (data.refresh_token) {
+        localStorage.setItem('tesla_refresh_token', data.refresh_token);
+      }
       router.push('/dashboard');
     } catch (err: any) {
       setError(err.message);
