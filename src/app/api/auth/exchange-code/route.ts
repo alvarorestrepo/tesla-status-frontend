@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const PROXY_URL = process.env.NEXT_PUBLIC_APP_URL 
-  ? `${process.env.NEXT_PUBLIC_APP_URL}/api/tesla-proxy`
-  : 'http://localhost:3000/api/tesla-proxy';
+const CLIENT_ID = 'ownerapi';
+const REDIRECT_URI = 'https://auth.tesla.com/void/callback';
+const TOKEN_URL = 'https://auth.tesla.com/oauth2/v3/token';
 
 /**
  * POST /api/auth/exchange-code
- * Intercambia el código de autorización por tokens usando el proxy de Tesla
+ * Intercambia el código de autorización por tokens llamando directamente a Tesla
  * El code_verifier viene del frontend (sessionStorage)
  */
 export async function POST(request: NextRequest) {
@@ -28,24 +28,26 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Intercambiar código por tokens usando el proxy
-    const proxyResponse = await fetch(PROXY_URL, {
+    // Intercambiar código por tokens llamando directamente a Tesla
+    const tokenResponse = await fetch(TOKEN_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
         grant_type: 'authorization_code',
-        code,
-        code_verifier,
-      }),
+        client_id: CLIENT_ID,
+        code: code,
+        redirect_uri: REDIRECT_URI,
+        code_verifier: code_verifier,
+      }).toString(),
     });
 
-    const data = await proxyResponse.json();
+    const data = await tokenResponse.json();
 
-    if (!proxyResponse.ok) {
-      console.error('Error en proxy Tesla:', data);
+    if (!tokenResponse.ok) {
+      console.error('Error en Tesla API:', data);
       return NextResponse.json(
         { error: data.error_description || data.error || 'Error al intercambiar código' },
-        { status: proxyResponse.status }
+        { status: tokenResponse.status }
       );
     }
 
