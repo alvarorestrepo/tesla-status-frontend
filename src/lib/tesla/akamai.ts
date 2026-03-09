@@ -57,10 +57,9 @@ export function processAkamaiData(data: AkamaiResponse, referenceNumber: string)
   const financingData = financing.data || {};
   
   const finalPayment = tasks.finalPayment || {};
-  const finalPaymentData = finalPayment.data || {};
   
-  const deliveryInfo = finalPaymentData.deliveryInfo || {};
-  const pickupLocationData = finalPaymentData.pickupLocationAddress || {};
+  const deliveryInfo = finalPayment.deliveryInfo || {};
+  const pickupLocationData = finalPayment.pickupLocationAddress || {};
 
   return {
     // Datos básicos del pedido
@@ -98,15 +97,17 @@ export function processAkamaiData(data: AkamaiResponse, referenceNumber: string)
     reservation_amount: orderDetails.reservationAmountReceived,
     reservation_amount_due: orderDetails.reservationAmountDue,
     reservation_amount_received: orderDetails.reservationAmountReceived,
-    amount_due: finalPaymentData.amountDue || orderDetails.amountDue,
-    amount_due_financier: finalPaymentData.amountDueFinancier,
-    account_balance: finalPaymentData.accountBalance,
+    amount_due: finalPayment.amountDue || orderDetails.amountDue,
+    amount_due_financier: finalPayment.amountDueFinancier,
+    account_balance: finalPayment.accountBalance,
     order_amount: orderDetails.orderAmount,
-    currency_code: orderDetails.currencyCode,
+    currency_code: finalPayment.currencyFormat?.currencyCode || orderDetails.currencyCode,
     is_full_payment_order: orderDetails.isFullPaymentOrder,
+    amount_sent: finalPayment.amountSent,
+    final_payment_accessible: finalPayment.accessible,
     
     // Información de entrega
-    delivery_location: scheduling.deliveryAddressTitle,
+    delivery_location: (scheduling as any).deliveryAddressTitle,
     delivery_type: orderDetails.deliveryType,
     delivery_location_trt_id: deliveryDetails.pickupLocationTrtId,
     pickup_location: deliveryDetails.pickupLocationTrtId || orderDetails.pickupLocation,
@@ -115,11 +116,15 @@ export function processAkamaiData(data: AkamaiResponse, referenceNumber: string)
     delivery_appointment: scheduling.apptDateTimeAddressStr,
     delivery_appointment_date: orderDetails.appointmentDate,
     delivery_appointment_date_utc: orderDetails.appointmentDateUtc,
-    eta_to_delivery_center: finalPaymentData.etaToDeliveryCenter,
+    eta_to_delivery_center: finalPayment.etaToDeliveryCenter,
     delivery_due_date: orderDetails.deliveryDueDate,
     expected_registration_date: orderDetails.expectedRegistrationDate,
     vehicle_location: orderDetails.vehicleRoutingLocation?.toString(),
     is_available_for_match: orderDetails.isAvailableForMatch,
+    self_scheduling_url: (scheduling as any).selfSchedulingUrl,
+    ready_to_accept: (scheduling as any).readyToAccept,
+    is_more_than_two_weeks: (scheduling as any).isMoreThanTwoWeeks,
+    is_self_scheduling_available: (scheduling as any).isSelfSchedulingAvailable,
     
     // Direcciones
     delivery_address: buildDeliveryAddress(deliveryDetails.address, regData.deliveryDetails?.address),
@@ -153,6 +158,7 @@ export function processAkamaiData(data: AkamaiResponse, referenceNumber: string)
       financing: financing.status,
       scheduling: scheduling.status,
       final_payment: finalPayment.status,
+      delivery_acceptance: tasks.deliveryAcceptance?.status,
     },
     
     // Información de pickup location
@@ -189,6 +195,9 @@ export function processAkamaiData(data: AkamaiResponse, referenceNumber: string)
     is_docs_being_regenerated: orderDetails.isDocsBeingRegenerated,
     final_invoice_exists: orderDetails.finalInvoiceExists,
     has_final_invoice: orderDetails.hasFinalInvoice,
+    agreements_e_sign_status: tasks.agreements?.eSignStatus,
+    agreements_completed_packets: tasks.agreements?.completedPackets,
+    agreements_has_signed_one_of_packets: tasks.agreements?.hasSignedOneOfPackets,
     
     // Conversión
     conversion_channel: orderDetails.conversionChannel,

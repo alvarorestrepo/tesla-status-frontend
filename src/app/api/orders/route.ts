@@ -84,6 +84,8 @@ export async function GET(request: NextRequest) {
             order_amount: akamaiProcessed.order_amount || null,
             currency_code: akamaiProcessed.currency_code || null,
             is_full_payment_order: akamaiProcessed.is_full_payment_order ?? null,
+            amount_sent: akamaiProcessed.amount_sent ?? null,
+            final_payment_accessible: akamaiProcessed.final_payment_accessible ?? null,
             delivery_location: akamaiProcessed.delivery_location || null,
             delivery_type: akamaiProcessed.delivery_type || null,
             delivery_location_trt_id: akamaiProcessed.delivery_location_trt_id || null,
@@ -98,6 +100,10 @@ export async function GET(request: NextRequest) {
             expected_registration_date: akamaiProcessed.expected_registration_date || null,
             vehicle_location: akamaiProcessed.vehicle_location || null,
             is_available_for_match: akamaiProcessed.is_available_for_match ?? null,
+            self_scheduling_url: akamaiProcessed.self_scheduling_url || null,
+            ready_to_accept: akamaiProcessed.ready_to_accept ?? null,
+            is_more_than_two_weeks: akamaiProcessed.is_more_than_two_weeks ?? null,
+            is_self_scheduling_available: akamaiProcessed.is_self_scheduling_available ?? null,
             delivery_address: akamaiProcessed.delivery_address || null,
             registration_address: akamaiProcessed.registration_address || null,
             user_id: akamaiProcessed.user_id || null,
@@ -143,6 +149,9 @@ export async function GET(request: NextRequest) {
             is_docs_being_regenerated: akamaiProcessed.is_docs_being_regenerated ?? null,
             final_invoice_exists: akamaiProcessed.final_invoice_exists ?? null,
             has_final_invoice: akamaiProcessed.has_final_invoice ?? null,
+            agreements_e_sign_status: akamaiProcessed.agreements_e_sign_status || null,
+            agreements_completed_packets: akamaiProcessed.agreements_completed_packets || null,
+            agreements_has_signed_one_of_packets: akamaiProcessed.agreements_has_signed_one_of_packets ?? null,
             conversion_channel: akamaiProcessed.conversion_channel || null,
             utm_source: akamaiProcessed.utm_source || null,
           };
@@ -255,6 +264,15 @@ export async function GET(request: NextRequest) {
             is_docs_being_regenerated: null,
             final_invoice_exists: null,
             has_final_invoice: null,
+            amount_sent: null,
+            final_payment_accessible: null,
+            self_scheduling_url: null,
+            ready_to_accept: null,
+            is_more_than_two_weeks: null,
+            is_self_scheduling_available: null,
+            agreements_e_sign_status: null,
+            agreements_completed_packets: null,
+            agreements_has_signed_one_of_packets: null,
             conversion_channel: null,
             utm_source: null,
           };
@@ -265,6 +283,16 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(enrichedOrders);
   } catch (error: any) {
     console.error('Error al obtener pedidos:', error);
+    
+    // Detectar si es error 401 (token expirado) y propagarlo correctamente
+    const errorMessage = error.message || '';
+    if (errorMessage.includes('401') || errorMessage.includes('token expired')) {
+      return NextResponse.json(
+        { error: 'Token expirado o inválido' },
+        { status: 401 }
+      );
+    }
+    
     return NextResponse.json(
       { error: error.message || 'Error al obtener pedidos' },
       { status: 500 }

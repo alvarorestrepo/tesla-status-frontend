@@ -23,11 +23,12 @@ export interface RegistrationAddress {
 }
 
 export interface TasksStatus {
-  registration: string | null;
-  agreements: string | null;
-  financing: string | null;
-  scheduling: string | null;
-  final_payment: string | null;
+  registration?: string | null;
+  agreements?: string | null;
+  financing?: string | null;
+  scheduling?: string | null;
+  final_payment?: string | null;
+  delivery_acceptance?: string | null; // FASE 1: Nueva tarea de aceptación de entrega
 }
 
 // Modelo principal de Order
@@ -82,6 +83,8 @@ export interface Order {
   order_amount: number | null;
   currency_code: string | null;
   is_full_payment_order: boolean | null;
+  amount_sent: number | null; // FASE 1: Cantidad ya pagada
+  final_payment_accessible: boolean | null; // FASE 1: Si el pago final está accesible
 
   // Información de entrega
   delivery_location: string | null;
@@ -98,6 +101,10 @@ export interface Order {
   expected_registration_date: string | null;
   vehicle_location: string | null;
   is_available_for_match: boolean | null;
+  self_scheduling_url: string | null; // FASE 1: URL para auto-agendar
+  ready_to_accept: boolean | null; // FASE 1: Listo para aceptar entrega
+  is_more_than_two_weeks: boolean | null; // FASE 1: Si faltan más de 2 semanas
+  is_self_scheduling_available: boolean | null; // FASE 1: Si está disponible auto-agendar
 
   // Direcciones
   delivery_address: DeliveryAddress | null;
@@ -161,6 +168,9 @@ export interface Order {
   is_docs_being_regenerated: boolean | null;
   final_invoice_exists: boolean | null;
   has_final_invoice: boolean | null;
+  agreements_e_sign_status: string | null; // FASE 1: Estado de firma electrónica
+  agreements_completed_packets: string[] | null; // FASE 1: Documentos completados
+  agreements_has_signed_one_of_packets: boolean | null; // FASE 1: Si firmó al menos un paquete
 
   // Campos adicionales de conversión
   conversion_channel: string | null;
@@ -201,6 +211,10 @@ export interface AkamaiResponse {
     };
     agreements?: {
       status?: string;
+      eSignStatus?: string;
+      completedPackets?: string[];
+      hasSignedOneOfPackets?: boolean;
+      lastPacketAcceptedOn?: string;
     };
     financing?: {
       status?: string;
@@ -211,10 +225,40 @@ export interface AkamaiResponse {
       deliveryDetails?: Record<string, any>;
       deliveryWindowDisplay?: string;
       apptDateTimeAddressStr?: string;
+      deliveryAddressTitle?: string;
+      selfSchedulingUrl?: string;
+      readyToAccept?: boolean;
+      isMoreThanTwoWeeks?: boolean;
+      isSelfSchedulingAvailable?: boolean;
+      isDeliveryEstimatesEnabled?: boolean;
+      isEligibleForReschedule?: boolean;
+      isInventoryOrMatched?: boolean;
     };
     finalPayment?: {
       status?: string;
       data?: Record<string, any>;
+      amountDue?: number;
+      amountDueFinancier?: number;
+      accountBalance?: number;
+      amountSent?: number;
+      accessible?: boolean;
+      currencyFormat?: {
+        currencyCode?: string;
+      };
+      etaToDeliveryCenter?: string;
+      deliveryInfo?: Record<string, any>;
+      pickupLocationAddress?: Record<string, any>;
+      card?: {
+        messageBody?: number;
+      };
+    };
+    deliveryAcceptance?: {
+      status?: string;
+      complete?: boolean;
+      isPickup?: boolean;
+      vehicleIsReady?: boolean;
+      isDeliveryToAddress?: boolean;
+      isTeslaDirect?: boolean;
     };
   };
 }
