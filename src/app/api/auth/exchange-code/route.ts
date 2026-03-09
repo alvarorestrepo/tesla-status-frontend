@@ -1,15 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { exchangeCodeForTokens } from '@/lib/tesla/oauth';
-import { getSession, deleteSession } from '@/lib/tesla/sessions';
+
+const PROXY_URL = process.env.NEXT_PUBLIC_APP_URL 
+  ? `${process.env.NEXT_PUBLIC_APP_URL}/api/tesla-proxy`
+  : 'http://localhost:3000/api/tesla-proxy';
 
 /**
  * POST /api/auth/exchange-code
- * Intercambia el código de autorización por tokens de Tesla
+ * Intercambia el código de autorización por tokens usando el proxy de Tesla
+ * El code_verifier viene del frontend (sessionStorage)
  */
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { code, state } = body;
+    const { code, code_verifier } = body;
 
     if (!code) {
       return NextResponse.json(
@@ -18,40 +21,39 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!state) {
+    if (!code_verifier) {
       return NextResponse.json(
-        { error: 'State requerido. Por favor, inicia el flujo nuevamente.' },
+        { error: 'Code verifier requerido. Asegúrate de guardarlo en sessionStorage antes de iniciar el login.' },
         { status: 400 }
       );
     }
 
-    // Buscar codeVerifier en sesiones temporales (servidor)
-    const session = getSession(state);
-    
-    if (!session) {
-      return NextResponse.json(
-        { error: 'Sesión no encontrada o expirada. Por favor, inicia el flujo nuevamente.' },
-        { status: 400 }
-      );
-    }
-
-    const codeVerifier = session.codeVerifier;
-    
-    // Marcar sesión como usada (eliminarla)
-    deleteSession(state);
-
-    // Intercambiar código por tokens
-    const tokens = await exchangeCodeForTokens({
-      code,
-      codeVerifier,
-      redirectUri: process.env.TESLA_REDIRECT_URI!,
+    // Intercambiar código por tokens usando el proxy
+    const proxyResponse = await fetch(PROXY_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        grant_type: 'authorization_code',
+        code,
+        code_verifier,
+      }),
     });
 
+    const data = await proxyResponse.json();
+
+    if (!proxyResponse.ok) {
+      console.error('Error en proxy Tesla:', data);
+      return NextResponse.json(
+        { error: data.error_description || data.error || 'Error al intercambiar código' },
+        { status: proxyResponse.status }
+      );
+    }
+
     return NextResponse.json({
-      access_token: tokens.access_token,
-      refresh_token: tokens.refresh_token,
-      expires_in: tokens.expires_in,
-      token_type: tokens.token_type,
+      access_token: data.access_token,
+      refresh_token: data.refresh_token,
+      expires_in: data.expires_in,
+      token_type: data.token_type || 'Bearer',
     });
   } catch (error: any) {
     console.error('Error al intercambiar código:', error);

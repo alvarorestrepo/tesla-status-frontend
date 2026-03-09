@@ -1,40 +1,74 @@
 /**
  * Cliente para la API de Akamai (akamai-apigateway-vfx.tesla.com)
  * Obtiene datos enriquecidos de pedidos (tasks, entrega, pago, etc.)
+ * Usa proxy en cliente (CORS) y llamadas directas en servidor
  */
 
 import { AkamaiResponse } from './types';
+import { getValidAccessToken } from './auth';
 
-const AKAMAI_API_URL = process.env.AKAMAI_API_URL || 'https://akamai-apigateway-vfx.tesla.com';
+const AKAMAI_API_URL = 'https://akamai-apigateway-vfx.tesla.com';
+const PROXY_URL = '/api/tesla-proxy';
+
+// Detectar si estamos en el servidor
+const isServer = typeof window === 'undefined';
 
 /**
  * Obtiene los datos detallados de un pedido desde Akamai
+ * En servidor: llamada directa
+ * En cliente: usa proxy
  */
 export async function getAkamaiData(
   accessToken: string,
   referenceNumber: string
 ): Promise<AkamaiResponse> {
-  const url = new URL(`${AKAMAI_API_URL}/tasks`);
-  url.searchParams.set('deviceLanguage', 'en');
-  url.searchParams.set('deviceCountry', 'US');
-  url.searchParams.set('referenceNumber', referenceNumber);
-  url.searchParams.set('appVersion', '9.99.9-9999');
+  const url = `${AKAMAI_API_URL}/tasks?deviceLanguage=en&deviceCountry=US&referenceNumber=${referenceNumber}&appVersion=9.99.9-9999`;
 
-  const response = await fetch(url.toString(), {
-    method: 'GET',
-    headers: {
-      'Authorization': `Bearer ${accessToken}`,
-      'Content-Type': 'application/json',
-    },
-  });
+  let response: Response;
+
+  if (isServer) {
+    // Servidor: llamada directa (no hay CORS)
+    response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+    });
+  } else {
+    // Cliente: usa proxy
+    response = await fetch(PROXY_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'proxy',
+        targetUrl: url,
+        accessToken: accessToken,
+      }),
+    });
+  }
 
   if (!response.ok) {
-    const errorData = await response.text();
-    console.warn(`Error al obtener datos de Akamai para ${referenceNumber}: ${response.status}`);
+    const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+    console.warn(`Error al obtener datos de Akamai para ${referenceNumber}: ${response.status}`, errorData);
     return { tasks: {} };
   }
 
   return response.json();
+}
+
+/**
+ * Obtiene los datos detallados de un pedido desde Akamai
+ * Usa el token almacenado en localStorage
+ */
+export async function getOrderDetailsFromAkamai(referenceNumber: string): Promise<AkamaiResponse> {
+  const accessToken = await getValidAccessToken();
+  
+  if (!accessToken) {
+    throw new Error('No hay token de acceso válido. Por favor, inicia sesión nuevamente.');
+  }
+
+  return getAkamaiData(accessToken, referenceNumber);
 }
 
 /**

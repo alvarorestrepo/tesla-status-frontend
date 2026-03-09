@@ -9,6 +9,12 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { ExternalLink, Loader2, AlertCircle, ArrowRight, CheckCircle2, Zap } from "lucide-react"
 import Link from "next/link"
 
+interface AuthUrlResponse {
+  auth_url: string;
+  state: string;
+  code_verifier: string;
+}
+
 export default function TeslaPopupAuth() {
   const router = useRouter();
   const [urlInput, setUrlInput] = useState('');
@@ -18,25 +24,33 @@ export default function TeslaPopupAuth() {
   const [step, setStep] = useState(1);
 
   useEffect(() => {
-    // Usar endpoint local de Next.js
+    // Generar URL de autorización al cargar la página
     fetch('/api/auth/tesla-url', { method: 'POST' })
       .then(res => res.json())
-      .then(data => {
-        if (data.auth_url) {
+      .then((data: AuthUrlResponse) => {
+        if (data.auth_url && data.code_verifier) {
           setAuthUrl(data.auth_url);
+          // Guardar code_verifier en sessionStorage para recuperarlo después
+          sessionStorage.setItem('tesla-code-verifier', data.code_verifier);
+          sessionStorage.setItem('tesla-auth-state', data.state);
+          console.log('[TeslaAuth] Code verifier guardado en sessionStorage');
         }
       })
-      .catch(err => console.error('Error:', err));
+      .catch(err => {
+        console.error('Error al generar URL:', err);
+        setError('Error al generar URL de autorización');
+      });
   }, []);
 
-  const extractCode = (url: string) => {
-    const match = url.match(/[?&]code=([^&]+)/);
-    return match ? match[1] : null;
-  };
-
-  const extractState = (url: string) => {
-    const match = url.match(/[?&]state=([^&]+)/);
-    return match ? match[1] : null;
+  const extractCode = (url: string): string | null => {
+    try {
+      const urlObj = new URL(url);
+      return urlObj.searchParams.get('code');
+    } catch {
+      // Fallback a regex si no es una URL válida
+      const match = url.match(/[?&]code=([^&]+)/);
+      return match ? match[1] : null;
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -45,7 +59,6 @@ export default function TeslaPopupAuth() {
     setError('');
 
     const code = extractCode(urlInput);
-    const state = extractState(urlInput);
     
     if (!code) {
       setError('No se encontró el código en la URL. Asegúrate de copiar la URL completa.');
@@ -53,18 +66,24 @@ export default function TeslaPopupAuth() {
       return;
     }
 
-    if (!state) {
-      setError('No se encontró el state en la URL. Asegúrate de copiar la URL completa.');
+    // Recuperar code_verifier del sessionStorage
+    const codeVerifier = sessionStorage.getItem('tesla-code-verifier');
+    
+    if (!codeVerifier) {
+      setError('No se encontró el code verifier. Por favor, refresca la página e inicia el proceso nuevamente.');
       setIsLoading(false);
       return;
     }
 
     try {
-      // Usar endpoint local de Next.js
+      // Intercambiar código por tokens
       const response = await fetch('/api/auth/exchange-code', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code, state }),
+        body: JSON.stringify({ 
+          code, 
+          code_verifier: codeVerifier 
+        }),
       });
 
       if (!response.ok) {
@@ -73,11 +92,22 @@ export default function TeslaPopupAuth() {
       }
 
       const data = await response.json();
-      // Guardar token de Tesla directamente
+      
+      // Guardar tokens en localStorage
       localStorage.setItem('tesla_access_token', data.access_token);
       if (data.refresh_token) {
         localStorage.setItem('tesla_refresh_token', data.refresh_token);
       }
+      
+      // Guardar tiempo de expiración
+      const expiresAt = Date.now() + (data.expires_in * 1000);
+      localStorage.setItem('tesla_token_expires_at', expiresAt.toString());
+
+      // Limpiar sessionStorage
+      sessionStorage.removeItem('tesla-code-verifier');
+      sessionStorage.removeItem('tesla-auth-state');
+
+      console.log('[TeslaAuth] Login exitoso, redirigiendo al dashboard');
       router.push('/dashboard');
     } catch (err: any) {
       setError(err.message);
