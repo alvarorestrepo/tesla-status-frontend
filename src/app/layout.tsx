@@ -52,8 +52,7 @@ export const metadata: Metadata = {
     statusBarStyle: 'black-translucent',
   },
   
-  // Manifest para PWA
-  manifest: '/manifest.json',
+
 };
 
 export const viewport: Viewport = {
