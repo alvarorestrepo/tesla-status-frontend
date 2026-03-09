@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useSidebar } from '@/hooks/useSidebar';
+import { useOrder } from '@/contexts/OrderContext';
 import { Order } from '@/lib/tesla/types';
 import { OrderStatus } from '@/components/sections/OrderStatus';
 import { OrderData } from '@/components/sections/OrderData';
@@ -19,7 +20,6 @@ import { TradeIn } from '@/components/sections/TradeIn';
 import { Documents } from '@/components/sections/Documents';
 import { Conversion } from '@/components/sections/Conversion';
 import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { 
   Activity, FileText, Calendar, CreditCard, CheckCircle,
   Car, Truck, Settings, User, IdCard, BarChart3, 
@@ -100,11 +100,8 @@ export default function SectionPage() {
   const params = useParams();
   const router = useRouter();
   const { setActiveSection } = useSidebar();
+  const { order, loading, error } = useOrder();
   const section = params.section as string;
-  
-  const [order, setOrder] = useState<Order | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
 
   // Validar sección
   useEffect(() => {
@@ -114,43 +111,6 @@ export default function SectionPage() {
     }
     setActiveSection(section);
   }, [section, router, setActiveSection]);
-
-  // Fetch order data
-  useEffect(() => {
-    const token = localStorage.getItem('tesla_access_token');
-    if (!token) {
-      router.push('/');
-      return;
-    }
-
-    fetch('/api/orders', {
-      headers: { 'Authorization': `Bearer ${token}` }
-    })
-    .then(res => {
-      if (!res.ok) {
-        if (res.status === 401) {
-          localStorage.removeItem('tesla_access_token');
-          localStorage.removeItem('tesla_refresh_token');
-          localStorage.removeItem('tesla_user_email');
-          router.push('/');
-          return;
-        }
-        throw new Error(`Error: ${res.status}`);
-      }
-      return res.json();
-    })
-    .then(data => {
-      if (data && data.length > 0) {
-        setOrder(data[0]);
-      }
-      setLoading(false);
-    })
-    .catch(err => {
-      console.error('Error:', err);
-      setError('Error al cargar los datos del pedido');
-      setLoading(false);
-    });
-  }, [router]);
 
   if (loading) {
     return (
